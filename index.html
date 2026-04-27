@@ -11,7 +11,6 @@
 body{margin:0;font-family:Arial;background:#F5F4F0;}
 .container{max-width:1200px;margin:auto;padding:15px;}
 
-/* HEADER */
 .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
 .header-left h1{font-size:18px;margin:0;}
 .header-left p{font-size:12px;color:#666;margin:3px 0;}
@@ -20,13 +19,11 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 .logo{width:110px;margin-top:5px;}
 .linea{border:none;border-top:2px solid #000;margin:10px 0;}
 
-/* BOTONES */
 .btn-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
 .dir-btn{padding:6px 10px;font-size:13px;border:1px solid #ccc;cursor:pointer;border-radius:6px;background:#fff;}
 .dir-btn.active{background:#000;color:#fff;}
 
-/* KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;}
 .kpi-card{background:#fff;border-radius:10px;padding:12px;border-top:4px solid #ccc;}
 .kpi-value{font-size:28px;font-weight:bold;}
 .kpi-total{border-top-color:#333;}
@@ -35,7 +32,6 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 .kpi-cerr{border-top-color:#2e7d32;}
 .kpi-jur{border-top-color:#c77800;}
 
-/* ALERTAS */
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
 .alert{padding:12px;border-radius:10px;border:1px solid;font-size:13px;}
 .alert strong{font-size:22px;}
@@ -44,7 +40,6 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 .proximo{background:#fff3cd;color:#8a6d3b;border-color:#ffb74d;}
 .tiempo{background:#e8f5e9;color:#2e7d32;border-color:#66bb6a;}
 
-/* LAYOUT */
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
@@ -52,11 +47,9 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
   .grid-2{grid-template-columns:1fr;}
 }
 
-/* CARDS */
 .card{background:#fff;border-radius:12px;padding:12px;}
 .chart-box{height:260px;}
 
-/* RESUMEN */
 .progress{height:8px;background:#eee;border-radius:6px;}
 .fill{height:100%;border-radius:6px;}
 .blue{background:#2c6ed5;}
@@ -64,7 +57,6 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 .orange{background:#c77800;}
 .gray{background:#777;}
 
-/* TABLA */
 table{width:100%;border-collapse:collapse;font-size:12px;}
 th,td{padding:6px;border-bottom:1px solid #eee;text-align:center;}
 th{text-align:left;}
@@ -79,7 +71,6 @@ th{text-align:left;}
 
 <div class="container">
 
-<!-- HEADER -->
 <div class="header">
   <div class="header-left">
     <h1>Tablero de Liquidación de Contratos — GCSM</h1>
@@ -95,7 +86,6 @@ th{text-align:left;}
 
 <hr class="linea">
 
-<!-- BOTONES -->
 <div class="btn-row" id="btns"></div>
 
 <!-- KPI -->
@@ -105,9 +95,11 @@ th{text-align:left;}
   <div class="kpi-card kpi-liq"><div>Liquidados</div><div class="kpi-value" id="liq">0</div></div>
   <div class="kpi-card kpi-cerr"><div>Cerrados</div><div class="kpi-value" id="cerr">0</div></div>
   <div class="kpi-card kpi-jur"><div>Jurídico</div><div class="kpi-value" id="jur">0</div></div>
+
+  <!-- 🔥 SOLO AGREGADO -->
+  <div class="kpi-card"><div>Por terminar</div><div class="kpi-value" id="pend">0</div></div>
 </div>
 
-<!-- ALERTAS -->
 <div class="kpi-row">
   <div class="alert vencido"><strong id="vencido">0</strong><br>VENCIDOS</div>
   <div class="alert critico"><strong id="critico">0</strong><br>CRÍTICOS</div>
@@ -115,7 +107,6 @@ th{text-align:left;}
   <div class="alert tiempo"><strong id="tiempo">0</strong><br>EN TIEMPO</div>
 </div>
 
-<!-- GRAFICAS -->
 <div class="grid-2">
 
 <div class="card">
@@ -153,27 +144,8 @@ let donutChart=null, barChart=null;
 
 document.getElementById('fecha').textContent=new Date().toLocaleDateString('es-CO');
 
-// 🔥 CARGA CON FALLBACK
 fetch('datos.csv')
-.then(r=>{
-  if(!r.ok) throw new Error("error");
-  return r.text();
-})
-.catch(()=>{
-  return new Promise(resolve=>{
-    alert("Selecciona el archivo datos.csv");
-    const input=document.createElement('input');
-    input.type='file';
-    input.accept='.csv';
-    input.onchange=e=>{
-      const file=e.target.files[0];
-      const reader=new FileReader();
-      reader.onload=e=>resolve(e.target.result);
-      reader.readAsText(file);
-    };
-    input.click();
-  });
-})
+.then(r=>r.text())
 .then(text=>{
 
 const filas=text.trim().split('\n');
@@ -189,6 +161,7 @@ TERMINADO:+c[3],
 LIQUIDADO:+c[4],
 CERRADO:+c[5],
 JURIDICO:+c[6],
+PENDIENTE:+c[7], // 👈 SOLO AGREGADO
 VENCIDO:+c[8],
 CRITICO:+c[9],
 PROXIMO:+c[10],
@@ -220,6 +193,9 @@ const d=getData(dir);
 document.getElementById(id).textContent=[d.TOTAL,d.TERMINADO,d.LIQUIDADO,d.CERRADO,d.JURIDICO][i];
 });
 
+// 🔥 SOLO AGREGADO
+document.getElementById('pend').textContent=d.PENDIENTE;
+
 document.getElementById('vencido').textContent=d.VENCIDO;
 document.getElementById('critico').textContent=d.CRITICO;
 document.getElementById('proximo').textContent=d.PROXIMO;
@@ -233,26 +209,38 @@ pintarTabla();
 
 function pct(v,t){return t?((v/t)*100).toFixed(0):0;}
 
+// 🔥 MODIFICADO SOLO PARA INCLUIR PENDIENTE
 function pintarResumen(d){
 const t=d.TOTAL||1;
 document.getElementById('resumen').innerHTML=`
 Liquidados ${pct(d.LIQUIDADO,t)}%
 <div class="progress"><div class="fill blue" style="width:${pct(d.LIQUIDADO,t)}%"></div></div><br>
+
 Cerrados ${pct(d.CERRADO,t)}%
 <div class="progress"><div class="fill green" style="width:${pct(d.CERRADO,t)}%"></div></div><br>
+
 Jurídico ${pct(d.JURIDICO,t)}%
 <div class="progress"><div class="fill orange" style="width:${pct(d.JURIDICO,t)}%"></div></div><br>
+
 Terminados ${pct(d.TERMINADO,t)}%
-<div class="progress"><div class="fill gray" style="width:${pct(d.TERMINADO,t)}%"></div></div>
+<div class="progress"><div class="fill gray" style="width:${pct(d.TERMINADO,t)}%"></div></div><br>
+
+Por terminar ${pct(d.PENDIENTE,t)}%
+<div class="progress"><div class="fill gray" style="width:${pct(d.PENDIENTE,t)}%"></div></div>
 `;
 }
 
+// 🔥 MODIFICADO SOLO PARA INCLUIR PENDIENTE
 function pintarDonut(d){
 if(donutChart)donutChart.destroy();
 donutChart=new Chart(document.getElementById('donut'),{
 type:'doughnut',
-data:{labels:['Liquidados','Cerrados','Jurídico','Terminados'],
-datasets:[{data:[d.LIQUIDADO,d.CERRADO,d.JURIDICO,d.TERMINADO]}]}
+data:{
+labels:['Liquidados','Cerrados','Jurídico','Terminados','Por terminar'],
+datasets:[{
+data:[d.LIQUIDADO,d.CERRADO,d.JURIDICO,d.TERMINADO,d.PENDIENTE]
+}]
+}
 });
 }
 
