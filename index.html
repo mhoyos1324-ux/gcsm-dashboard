@@ -40,10 +40,24 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 .proximo{background:#fff3cd;color:#8a6d3b;border-color:#ffb74d;}
 .tiempo{background:#e8f5e9;color:#2e7d32;border-color:#66bb6a;}
 
+/* 🔥 SOLO AGREGADO — sección Cuentas por Pagar */
+.section-title{font-size:14px;font-weight:bold;margin:4px 0 8px 2px;color:#333;}
+.kpi-money-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;}
+.kpi-money{background:#fff;border-radius:10px;padding:12px;border-top:4px solid #ccc;}
+.kpi-money .label{font-size:11px;color:#666;}
+.kpi-money-value{font-size:16px;font-weight:bold;white-space:nowrap;}
+.money-total{border-top-color:#111;}
+.money-term{border-top-color:#888;}
+.money-liq{border-top-color:#2c6ed5;}
+.money-cerr{border-top-color:#2e7d32;}
+.money-jur{border-top-color:#c77800;}
+.money-pend{border-top-color:#a94442;}
+
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
   .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .kpi-money-grid{grid-template-columns:repeat(2,1fr);}
   .grid-2{grid-template-columns:1fr;}
 }
 
@@ -95,8 +109,6 @@ th{text-align:left;}
   <div class="kpi-card kpi-liq"><div>Liquidados</div><div class="kpi-value" id="liq">0</div></div>
   <div class="kpi-card kpi-cerr"><div>Cerrados</div><div class="kpi-value" id="cerr">0</div></div>
   <div class="kpi-card kpi-jur"><div>Jurídico</div><div class="kpi-value" id="jur">0</div></div>
-
-  <!-- 🔥 SOLO AGREGADO -->
   <div class="kpi-card"><div>Por terminar</div><div class="kpi-value" id="pend">0</div></div>
 </div>
 
@@ -105,6 +117,17 @@ th{text-align:left;}
   <div class="alert critico"><strong id="critico">0</strong><br>CRÍTICOS</div>
   <div class="alert proximo"><strong id="proximo">0</strong><br>PRÓXIMOS</div>
   <div class="alert tiempo"><strong id="tiempo">0</strong><br>EN TIEMPO</div>
+</div>
+
+<!-- 🔥 SOLO AGREGADO — KPI Cuentas por Pagar (interactivo con el mismo selector de dirección) -->
+<div class="section-title">💰 Cuentas por Pagar (COP) — <span id="dir-actual">Todas las direcciones</span></div>
+<div class="kpi-money-grid">
+  <div class="kpi-money money-total"><div class="label">Total CxP</div><div class="kpi-money-value" id="money-total">$0</div></div>
+  <div class="kpi-money money-term"><div class="label">Terminado</div><div class="kpi-money-value" id="money-term">$0</div></div>
+  <div class="kpi-money money-liq"><div class="label">Liquidado</div><div class="kpi-money-value" id="money-liq">$0</div></div>
+  <div class="kpi-money money-cerr"><div class="label">Cerrado</div><div class="kpi-money-value" id="money-cerr">$0</div></div>
+  <div class="kpi-money money-jur"><div class="label">Jurídico</div><div class="kpi-money-value" id="money-jur">$0</div></div>
+  <div class="kpi-money money-pend"><div class="label">Pendiente</div><div class="kpi-money-value" id="money-pend">$0</div></div>
 </div>
 
 <div class="grid-2">
@@ -135,14 +158,34 @@ th{text-align:left;}
 
 </div>
 
+<!-- 🔥 SOLO AGREGADO — comparativo de valores CxP por dirección -->
+<div class="grid-2">
+
+<div class="card">
+<h4>Cuentas por Pagar por dirección</h4>
+<table id="tabla-money"></table>
+</div>
+
+<div class="card">
+<h4>Distribución de CxP por dirección</h4>
+<div class="chart-box"><canvas id="barMoney"></canvas></div>
+</div>
+
+</div>
+
 </div>
 
 <script>
 
 let DATA={}, RESUMEN={};
-let donutChart=null, barChart=null;
+let donutChart=null, barChart=null, barMoneyChart=null;
 
 document.getElementById('fecha').textContent=new Date().toLocaleDateString('es-CO');
+
+// 🔥 SOLO AGREGADO
+function formatCOP(v){
+return '$ ' + Number(v||0).toLocaleString('es-CO');
+}
 
 fetch('datos.csv')
 .then(r=>r.text())
@@ -161,11 +204,17 @@ TERMINADO:+c[3],
 LIQUIDADO:+c[4],
 CERRADO:+c[5],
 JURIDICO:+c[6],
-PENDIENTE:+c[7], // 👈 SOLO AGREGADO
+PENDIENTE:+c[7],
 VENCIDO:+c[8],
 CRITICO:+c[9],
 PROXIMO:+c[10],
-ENTIEMPO:+c[11]
+ENTIEMPO:+c[11],
+// 🔥 SOLO AGREGADO — valores de Cuentas por Pagar
+VALOR_TERMINADO:+c[12]||0,
+VALOR_LIQUIDADO:+c[13]||0,
+VALOR_CERRADO:+c[14]||0,
+VALOR_JURIDICO:+c[15]||0,
+VALOR_PENDIENTE:+c[16]||0
 };
 
 if(tipo==="DIRECCION") DATA[dir]=obj;
@@ -187,13 +236,18 @@ selectDir('TODAS');
 function getData(dir){return dir==='TODAS'?RESUMEN:DATA[dir];}
 
 function selectDir(dir){
+
+// resaltar botón activo
+document.querySelectorAll('.dir-btn').forEach(b=>{
+b.classList.toggle('active', b.textContent===(dir==='TODAS'?'Todas':dir));
+});
+
 const d=getData(dir);
 
 ['total','term','liq','cerr','jur'].forEach((id,i)=>{
 document.getElementById(id).textContent=[d.TOTAL,d.TERMINADO,d.LIQUIDADO,d.CERRADO,d.JURIDICO][i];
 });
 
-// 🔥 SOLO AGREGADO
 document.getElementById('pend').textContent=d.PENDIENTE;
 
 document.getElementById('vencido').textContent=d.VENCIDO;
@@ -201,15 +255,26 @@ document.getElementById('critico').textContent=d.CRITICO;
 document.getElementById('proximo').textContent=d.PROXIMO;
 document.getElementById('tiempo').textContent=d.ENTIEMPO;
 
+// 🔥 SOLO AGREGADO — actualizar KPI de Cuentas por Pagar según dirección seleccionada
+document.getElementById('dir-actual').textContent = dir==='TODAS' ? 'Todas las direcciones' : dir;
+const totalCxP = d.VALOR_TERMINADO + d.VALOR_LIQUIDADO + d.VALOR_CERRADO + d.VALOR_JURIDICO + d.VALOR_PENDIENTE;
+document.getElementById('money-total').textContent = formatCOP(totalCxP);
+document.getElementById('money-term').textContent = formatCOP(d.VALOR_TERMINADO);
+document.getElementById('money-liq').textContent = formatCOP(d.VALOR_LIQUIDADO);
+document.getElementById('money-cerr').textContent = formatCOP(d.VALOR_CERRADO);
+document.getElementById('money-jur').textContent = formatCOP(d.VALOR_JURIDICO);
+document.getElementById('money-pend').textContent = formatCOP(d.VALOR_PENDIENTE);
+
 pintarResumen(d);
 pintarDonut(d);
 pintarBar();
 pintarTabla();
+pintarTablaMoney();
+pintarBarMoney();
 }
 
 function pct(v,t){return t?((v/t)*100).toFixed(0):0;}
 
-// 🔥 MODIFICADO SOLO PARA INCLUIR PENDIENTE
 function pintarResumen(d){
 const t=d.TOTAL||1;
 document.getElementById('resumen').innerHTML=`
@@ -230,7 +295,6 @@ Por terminar ${pct(d.PENDIENTE,t)}%
 `;
 }
 
-// 🔥 MODIFICADO SOLO PARA INCLUIR PENDIENTE
 function pintarDonut(d){
 if(donutChart)donutChart.destroy();
 donutChart=new Chart(document.getElementById('donut'),{
@@ -263,7 +327,7 @@ else{colores.push("#2e7d32");}
 barChart=new Chart(document.getElementById('bar'),{
 type:'bar',
 data:{labels:labels,datasets:[{data:valores,backgroundColor:colores}]},
-options:{indexAxis:'y',scales:{x:{min:0,max:100,ticks:{callback:v=>v+"%"}}}}
+options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:100,ticks:{callback:v=>v+"%"}}}}
 });
 }
 
@@ -278,6 +342,46 @@ html+=`<tr><td>${k}</td><td>${d.TOTAL}</td><td>${p.toFixed(0)}%</td>
 <td><span class="badge ${cls}">${txt}</span></td></tr>`;
 });
 document.getElementById('tabla').innerHTML=html;
+}
+
+// 🔥 SOLO AGREGADO — tabla comparativa de valores CxP por dirección (clic filtra el resto del tablero)
+function pintarTablaMoney(){
+let html=`<tr><th>Dirección</th><th>Total CxP</th><th>Pendiente</th></tr>`;
+Object.entries(DATA).forEach(([k,d])=>{
+const total=d.VALOR_TERMINADO+d.VALOR_LIQUIDADO+d.VALOR_CERRADO+d.VALOR_JURIDICO+d.VALOR_PENDIENTE;
+html+=`<tr style="cursor:pointer" onclick="selectDir('${k}')">
+<td>${k}</td><td>${formatCOP(total)}</td><td>${formatCOP(d.VALOR_PENDIENTE)}</td></tr>`;
+});
+document.getElementById('tabla-money').innerHTML=html;
+}
+
+// 🔥 SOLO AGREGADO — gráfico de barras de CxP total por dirección
+function pintarBarMoney(){
+if(barMoneyChart)barMoneyChart.destroy();
+
+let labels=[],valores=[];
+
+Object.entries(DATA).forEach(([k,d])=>{
+const total=d.VALOR_TERMINADO+d.VALOR_LIQUIDADO+d.VALOR_CERRADO+d.VALOR_JURIDICO+d.VALOR_PENDIENTE;
+labels.push(k);
+valores.push(total);
+});
+
+barMoneyChart=new Chart(document.getElementById('barMoney'),{
+type:'bar',
+data:{labels:labels,datasets:[{data:valores,backgroundColor:'#2c6ed5'}]},
+options:{
+indexAxis:'y',
+plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>formatCOP(ctx.raw)}}},
+scales:{x:{ticks:{callback:v=>formatCOP(v)}}}
+},
+onClick:(evt,elements)=>{
+if(elements.length){
+const idx=elements[0].index;
+selectDir(labels[idx]);
+}
+}
+});
 }
 
 </script>
