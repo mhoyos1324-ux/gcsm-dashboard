@@ -8,8 +8,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
 <style>
-body{margin:0;font-family:Arial;background:#F5F4F0;}
-.container{max-width:1200px;margin:auto;padding:15px;}
+html,body{margin:0;height:100%;font-family:Arial;background:#F5F4F0;}
+.container{max-width:1200px;margin:auto;padding:15px;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;}
+
+/* 🔥 SOLO AGREGADO — parte superior fija y área inferior con scroll propio */
+.top-fixed{flex-shrink:0;}
+.scroll-area{flex:1;overflow-y:auto;padding-right:4px;}
 
 .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
 .header-left h1{font-size:18px;margin:0;}
@@ -63,6 +67,8 @@ body{margin:0;font-family:Arial;background:#F5F4F0;}
 
 .card{background:#fff;border-radius:12px;padding:12px;}
 .chart-box{height:260px;}
+/* 🔥 SOLO AGREGADO — nota de filtro activo sobre los gráficos comparativos */
+.chart-note{font-size:11px;color:#888;margin:-4px 0 6px 0;}
 
 .progress{height:8px;background:#eee;border-radius:6px;}
 .fill{height:100%;border-radius:6px;}
@@ -78,12 +84,16 @@ th{text-align:left;}
 .ok{background:#e8f5e9;color:#2e7d32;}
 .warn{background:#fff3cd;color:#8a6d3b;}
 .bad{background:#f8d7da;color:#a94442;}
+/* 🔥 SOLO AGREGADO — resaltar fila activa en tablas */
+tr.row-active{background:#fff3cd;}
 </style>
 </head>
 
 <body>
 
 <div class="container">
+
+<div class="top-fixed">
 
 <div class="header">
   <div class="header-left">
@@ -130,6 +140,10 @@ th{text-align:left;}
   <div class="kpi-money money-pend"><div class="label">Pendiente</div><div class="kpi-money-value" id="money-pend">$0</div></div>
 </div>
 
+</div><!-- /top-fixed -->
+
+<div class="scroll-area">
+
 <div class="grid-2">
 
 <div class="card">
@@ -153,6 +167,8 @@ th{text-align:left;}
 
 <div class="card">
 <h4>% Gestión por dirección</h4>
+<!-- 🔥 SOLO AGREGADO -->
+<div class="chart-note">La dirección seleccionada arriba se resalta en el gráfico. Clic en una barra para filtrar el tablero.</div>
 <div class="chart-box"><canvas id="bar"></canvas></div>
 </div>
 
@@ -168,17 +184,21 @@ th{text-align:left;}
 
 <div class="card">
 <h4>Distribución de CxP por dirección</h4>
+<div class="chart-note">La dirección seleccionada arriba se resalta en el gráfico. Clic en una barra para filtrar el tablero.</div>
 <div class="chart-box"><canvas id="barMoney"></canvas></div>
 </div>
 
 </div>
 
-</div>
+</div><!-- /scroll-area -->
+
+</div><!-- /container -->
 
 <script>
 
 let DATA={}, RESUMEN={};
 let donutChart=null, barChart=null, barMoneyChart=null;
+let currentDir='TODAS'; // 🔥 SOLO AGREGADO — dirección seleccionada actual
 
 document.getElementById('fecha').textContent=new Date().toLocaleDateString('es-CO');
 
@@ -237,6 +257,8 @@ function getData(dir){return dir==='TODAS'?RESUMEN:DATA[dir];}
 
 function selectDir(dir){
 
+currentDir=dir; // 🔥 SOLO AGREGADO
+
 // resaltar botón activo
 document.querySelectorAll('.dir-btn').forEach(b=>{
 b.classList.toggle('active', b.textContent===(dir==='TODAS'?'Todas':dir));
@@ -267,10 +289,10 @@ document.getElementById('money-pend').textContent = formatCOP(d.VALOR_PENDIENTE)
 
 pintarResumen(d);
 pintarDonut(d);
-pintarBar();
+pintarBar();          // 🔥 ahora resalta currentDir
 pintarTabla();
-pintarTablaMoney();
-pintarBarMoney();
+pintarTablaMoney();   // 🔥 ahora resalta currentDir
+pintarBarMoney();     // 🔥 ahora resalta currentDir
 }
 
 function pct(v,t){return t?((v/t)*100).toFixed(0):0;}
@@ -319,16 +341,41 @@ let pct=((d.LIQUIDADO+d.CERRADO)/d.TOTAL*100)||0;
 labels.push(k);
 valores.push(pct);
 
-if(pct<30){colores.push("#d9534f");}
-else if(pct<60){colores.push("#2c6ed5");}
-else{colores.push("#2e7d32");}
+// 🔥 SOLO AGREGADO — color base según desempeño, pero se atenúa si no es la dirección activa
+let base;
+if(pct<30){base="#d9534f";}
+else if(pct<60){base="#2c6ed5";}
+else{base="#2e7d32";}
+
+const esActiva = (currentDir==='TODAS') || (currentDir===k);
+colores.push(esActiva ? base : hexToRgba(base,0.25));
 });
 
 barChart=new Chart(document.getElementById('bar'),{
 type:'bar',
 data:{labels:labels,datasets:[{data:valores,backgroundColor:colores}]},
-options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:100,ticks:{callback:v=>v+"%"}}}}
+options:{
+indexAxis:'y',
+plugins:{legend:{display:false}},
+scales:{x:{min:0,max:100,ticks:{callback:v=>v+"%"}}},
+// 🔥 SOLO AGREGADO — clic en una barra filtra el tablero, igual que los botones de dirección
+onClick:(evt,elements)=>{
+if(elements.length){
+const idx=elements[0].index;
+selectDir(labels[idx]);
+}
+}
+}
 });
+}
+
+// 🔥 SOLO AGREGADO — helper para atenuar colores hex a rgba
+function hexToRgba(hex,alpha){
+const h=hex.replace('#','');
+const r=parseInt(h.substring(0,2),16);
+const g=parseInt(h.substring(2,4),16);
+const b=parseInt(h.substring(4,6),16);
+return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function pintarTabla(){
@@ -344,41 +391,45 @@ html+=`<tr><td>${k}</td><td>${d.TOTAL}</td><td>${p.toFixed(0)}%</td>
 document.getElementById('tabla').innerHTML=html;
 }
 
-// 🔥 SOLO AGREGADO — tabla comparativa de valores CxP por dirección (clic filtra el resto del tablero)
+// 🔥 SOLO AGREGADO — tabla comparativa de valores CxP por dirección (clic filtra el resto del tablero, resalta fila activa)
 function pintarTablaMoney(){
 let html=`<tr><th>Dirección</th><th>Total CxP</th><th>Pendiente</th></tr>`;
 Object.entries(DATA).forEach(([k,d])=>{
 const total=d.VALOR_TERMINADO+d.VALOR_LIQUIDADO+d.VALOR_CERRADO+d.VALOR_JURIDICO+d.VALOR_PENDIENTE;
-html+=`<tr style="cursor:pointer" onclick="selectDir('${k}')">
+const activa = currentDir===k ? 'row-active' : '';
+html+=`<tr class="${activa}" style="cursor:pointer" onclick="selectDir('${k}')">
 <td>${k}</td><td>${formatCOP(total)}</td><td>${formatCOP(d.VALOR_PENDIENTE)}</td></tr>`;
 });
 document.getElementById('tabla-money').innerHTML=html;
 }
 
-// 🔥 SOLO AGREGADO — gráfico de barras de CxP total por dirección
+// 🔥 SOLO AGREGADO — gráfico de barras de CxP total por dirección, con resaltado de la dirección activa
 function pintarBarMoney(){
 if(barMoneyChart)barMoneyChart.destroy();
 
-let labels=[],valores=[];
+let labels=[],valores=[],colores=[];
 
 Object.entries(DATA).forEach(([k,d])=>{
 const total=d.VALOR_TERMINADO+d.VALOR_LIQUIDADO+d.VALOR_CERRADO+d.VALOR_JURIDICO+d.VALOR_PENDIENTE;
 labels.push(k);
 valores.push(total);
+
+const esActiva = (currentDir==='TODAS') || (currentDir===k);
+colores.push(esActiva ? '#2c6ed5' : hexToRgba('#2c6ed5',0.25));
 });
 
 barMoneyChart=new Chart(document.getElementById('barMoney'),{
 type:'bar',
-data:{labels:labels,datasets:[{data:valores,backgroundColor:'#2c6ed5'}]},
+data:{labels:labels,datasets:[{data:valores,backgroundColor:colores}]},
 options:{
 indexAxis:'y',
 plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>formatCOP(ctx.raw)}}},
-scales:{x:{ticks:{callback:v=>formatCOP(v)}}}
-},
+scales:{x:{ticks:{callback:v=>formatCOP(v)}}},
 onClick:(evt,elements)=>{
 if(elements.length){
 const idx=elements[0].index;
 selectDir(labels[idx]);
+}
 }
 }
 });
